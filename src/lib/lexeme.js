@@ -1,7 +1,7 @@
 const Lexeme = {
-	VARIDENT: /^[a-zA-Z][a-zA-Z0-9_]*/,
-	NUMBR: /^[0-9]+/,
-	NUMBAR: /^[0-9]+\.[0-9]+/,
+	VARIDENT: /^[a-zA-Z][\w]*/,
+	NUMBR: /^[0-9]+$/,
+	NUMBAR: /^[0-9]+\.[0-9]+$/,
 	YARN: /^".*"/,
 	WIN: /^WIN/,
 	FAIL: /^FAIL/,

@@ -7,27 +7,26 @@ class LexicalAnalyzer {
 		this.code = removedComments;
 		this.tokens = [];
 		this.lines = removedComments.split("\n");
+		this.errorMessage = "";
 	}
 
 	data() {
-		return {
-			tokens: this.tokens,
-			lines: this.lines,
-			code: this.code,
-		};
+		return !this.errorMessage
+		? { tokens: this.tokens, lines: this.lines, code: this.code }
+		: { error: this.errorMessage };
 	}
 
 	lexer(line, index) {
 		for (let i = 0; i < line.length; i++) {
 			let str = line.substring(i).trim();
 			let match;
-			if ((match = Lexeme.NUMBAR.exec(str)))
+			if ((match = Lexeme.NUMBAR.exec(str.split(" ")[0])))
 				this.tokens.push({
 					lexeme: match[0],
 					description: "Float literal",
 					line: index,
 				});
-			else if ((match = Lexeme.NUMBR.exec(str)))
+			else if ((match = Lexeme.NUMBR.exec(str.split(" ")[0])))
 				this.tokens.push({
 					lexeme: match[0],
 					description: "Integer literal",
@@ -51,6 +50,10 @@ class LexicalAnalyzer {
 					description: "Bool literal",
 					line: index,
 				});
+			else if ((match = Lexeme.BTW.exec(str)) || (match = Lexeme.OBTW.exec(str)) || (match = Lexeme.TLDR.exec(str))) {
+				this.errorMessage = `Encountered unrecognized token '${match[0]}' while tokenizing at line ${index}`;
+				break;
+			}
 			else if ((match = Lexeme.TYPE.exec(str)))
 				this.tokens.push({
 					lexeme: match[0],
@@ -344,18 +347,19 @@ class LexicalAnalyzer {
 					description: "Variable identifier",
 					line: index,
 				});
-			if (match) i += match[0].length;
 			else {
-				console.log(
-					`Encountered unrecognized token '${str}' while tokenizing at line ${index}`
-				);
+				this.errorMessage = `Encountered unrecognized token '${str}' while tokenizing at line ${index}`;
 				break;
 			}
+			console.log(this.tokens);
+			i += match[0].length;
 		}
 	}
 	run() {
-		for (let i = 0; i < this.lines.length; i++)
-			this.lexer(this.lines[i].trim(), i + 1);
+			for (let i = 0; i < this.lines.length; i++) {
+				if (this.errorMessage) break;
+				this.lexer(this.lines[i].trim(), i + 1);
+			}
 	}
 }
 
