@@ -66,16 +66,18 @@ class LexicalAnalyzer {
 					description: "Start of the program",
 					line: index,
 				});
-				if ((match = Lexeme.NUMBAR.exec(str.substring(match[0].length + 1)))) {
+				let version;
+				if ((version = Lexeme.NUMBAR.exec(str.substring(match[0].length + 1)))) {
 					this.tokens.push({
-						lexeme: match[0],
+						lexeme: version[0],
 						description: "LOLCODE version",
 						line: index,
 					});
-					i += match[0].length + 3;
+					i += match[0].length + version[0].length;
 					continue;
 				}
-			} else if ((match = Lexeme.KTHXBYE.exec(str)))
+			}
+			else if ((match = Lexeme.KTHXBYE.exec(str)))
 				this.tokens.push({
 					lexeme: match[0],
 					description: "End of program",
@@ -347,11 +349,10 @@ class LexicalAnalyzer {
 					description: "Variable identifier",
 					line: index,
 				});
-			else {
-				this.errorMessage = `Encountered unrecognized token '${str}' while tokenizing at line ${index}`;
+			if (!match) {
+				this.errorMessage = `Encountered unrecognized token '${str.split(" ")[0]}' while tokenizing at line ${index}`;
 				break;
 			}
-			console.log(this.tokens);
 			i += match[0].length;
 		}
 	}
