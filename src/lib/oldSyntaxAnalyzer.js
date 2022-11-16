@@ -2,6 +2,7 @@ class SyntaxAnalyzer {
 	constructor(tokens) {
 		this.tokens = tokens;
 		this.errorMessage = "";
+		this.stack = [];
 		this.prevLine = 1;
 	}
 
@@ -9,67 +10,49 @@ class SyntaxAnalyzer {
 		return { error: this.errorMessage };
 	}
 
-	code(type) {
-		let delimeters = {
-			MAIN: ["End of program"],
-			IF: ["Conditional operator end", "Conditional operator ELSE-IF", "Conditional operator ELSE"],
-			ELSE: ["Conditional operator end"],
-			CASE: ["Conditional operator end", "Conditional operator CASE", "Conditional operator default CASE"],
-			LOOP: ["Loop delimeter end"]
-		};
-
-		while(true) {
-			//If there's already an error, return
-			if(this.errorMessage) return;
-
-			//Check if tokens is empty
-			if(this.tokens.length === 0) {
-				this.errorMessage = `Expected ${delimeters[type][0]} after line: ${this.prevLine}`;
-				return;
-			}
-
-			//Check if there are two statements in a line(lookbehind)
-			if(this.prevLine >= this.tokens[0].line) {
-				this.errorMessage = `Unexpected token: ${this.tokens[0].lexeme} at line ${this.tokens[0].line}`;
-				return;
-			}
-
-			if(delimeters[type].indexOf(this.tokens[0].description) > -1) {
-				this.prevLine = this.tokens[0].line;
-				if(this.tokens[0].description === "End of program" || this.tokens[0].description === "Conditional operator end") {
-					//Check if delimeter is alone in the line
-
-					if(!!this.tokens[1] && this.prevLine >= this.tokens[1].line) {
-						this.errorMessage = `Unexpected token: ${this.tokens[1].lexeme} at line ${this.tokens[1].line}`;
-						return;
-					}
-				}
-
-				return;
-			}
-
-			this.prevLine = this.tokens[0].line;
-
-			this.statement();
-		}
-	}
-
 	//Do not put typecast in expression. Lagyan na lang ng special case sa assignment
 	statement() {
-		if(this.tokens[0].description === "Standard output") this.print();
+		//If there's already an error, return
+		if(this.errorMessage) return;
+
+		//Check if tokens is empty
+		if(this.tokens.length === 0) {
+			this.errorMessage = `Expected KTHXBYE at: end of file`;
+			return;
+		}
+
+		//Check if there are two statements in a line
+		if(this.prevLine >= this.tokens[0].line) {
+			this.errorMessage = `Unexpected token: ${this.tokens[0].lexeme} at line ${this.tokens[0].line}`;
+			return;
+		}
+
+		this.prevLine = this.tokens[0].line;
+		
+		if(this.tokens[0].description === "End of program") {
+			let start = this.stack.shift();
+			
+			if(start.description !== "Start of the program") this.errorMessage = `Expecting delimeter for token: ${start.lexeme} at line ${start.line}`;
+			else if(start.line === this.tokens[0].line) this.errorMessage = `Unexpected token: ${start.lexeme} at line ${start.line}`;
+			return;
+		}
+		else if(this.tokens[0].description === "Standard output") this.print();
 		else if(this.tokens[0].description === "Loop delimeter start") this.loop();
 		else if(this.tokens[0].description === "Variable declaration") this.declaration();
 		else if(this.tokens[0].description === "Break statement") this.tokens.shift();
 		else if(this.tokens[0].description === "Variable identifier") {
 			if(this.tokens[1].description === "Assigns value to a variable") this.assignment();
-			else if(this.tokens[1].description === "Typecast an identifier's value") this.recast();
+			else if(this.tokens[1].description === "Typecast an identifier's value") this.typecast();
 			else this.expression();
 		}
-		else if(this.tokens[0].description === "Typecast indicator" || this.tokens[0].description === "Float literal" || this.tokens[0].description === "Integer literal" || this.tokens[0].description === "String literal" || this.tokens[0].description === "Bool literal" || this.tokens[0].description === "Performs addition on expressions" || this.tokens[0].description === "Performs subtraction on expressions" || this.tokens[0].description === "Performs multiplication on expressions" || this.tokens[0].description === "Performs division on expressions" || this.tokens[0].description === "Performs modulo on expressions" || this.tokens[0].description === "Comparison operator which returns the expression with the largest value" || this.tokens[0].description === "Comparison operator which returns the expression with the smallest value" || this.tokens[0].description === "Logical operator AND" || this.tokens[0].description === "Logical operator OR" || this.tokens[0].description === "Logical operator NOT" || this.tokens[0].description === "Logical operator XOR" || this.tokens[0].description === "Logical operator OR with infinite arguments" || this.tokens[0].description === "Logical operator AND with infinite arguments" || this.tokens[0].description === "Comparison operator for equality" || this.tokens[0].description === "Comparison operator for inequality" || this.tokens[0].description === "Concatenates strings") this.expression();
+		else if(this.tokens[0].description === "Typecast indicator") this.typecast();
+		else if(this.tokens[0].description === "Float literal" || this.tokens[0].description === "Integer literal" || this.tokens[0].description === "String literal" || this.tokens[0].description === "Bool literal" || this.tokens[0].description === "Performs addition on expressions" || this.tokens[0].description === "Performs subtraction on expressions" || this.tokens[0].description === "Performs multiplication on expressions" || this.tokens[0].description === "Performs division on expressions" || this.tokens[0].description === "Performs modulo on expressions" || this.tokens[0].description === "Comparison operator which returns the expression with the largest value" || this.tokens[0].description === "Comparison operator which returns the expression with the smallest value" || this.tokens[0].description === "Logical operator AND" || this.tokens[0].description === "Logical operator OR" || this.tokens[0].description === "Logical operator NOT" || this.tokens[0].description === "Logical operator XOR" || this.tokens[0].description === "Logical operator OR with infinite arguments" || this.tokens[0].description === "Logical operator AND with infinite arguments" || this.tokens[0].description === "Comparison operator for equality" || this.tokens[0].description === "Comparison operator for inequality" || this.tokens[0].description === "Concatenates strings") this.expression();
 		else if(this.tokens[0].description === "Conditional operator SWITCH start") this.switchCase();
 		else if(this.tokens[0].description === "Conditional operator IF start") this.ifBlock();
 		else if(this.tokens[0].description === "Standard input") this.input();
 		else this.errorMessage = `Unexpected token: ${this.tokens[0].lexeme} at line ${this.tokens[0].line}`;
+
+		this.statement();
 	}
 
 	//Statement subgroup
@@ -84,7 +67,6 @@ class SyntaxAnalyzer {
 
 		if(this.tokens[0].description === "Variable identifier") this.tokens.shift();
 		else if(this.literal()) this.tokens.shift();
-		else if(this.tokens[0].description === "Typecast indicator") this.typecast();
 		else if(this.tokens[0].description === "Performs addition on expressions") this.add();
 		else if(this.tokens[0].description === "Performs subtraction on expressions") this.sub();
 		else if(this.tokens[0].description === "Performs multiplication on expressions") this.mul();
@@ -110,10 +92,13 @@ class SyntaxAnalyzer {
 	print() {
 		//Remove operator
 		this.tokens.shift();
-		while(this.prevLine === this.tokens[0].line) {
-			if(this.errorMessage) return;
+		while(this.prevLine === this.tokens[0].line)
 			this.expression();
-		}
+
+		//Check if an error occured
+		if(this.errorMessage) return;
+
+		this.an();
 	}
 
 	loop() {
@@ -126,7 +111,7 @@ class SyntaxAnalyzer {
 		}
 
 		//Remove label
-		let label = this.tokens.shift().lexeme;
+		this.tokens.shift();
 
 		if(this.tokens[0].description === "Increment loop variable" || this.tokens[0].description === "Decrement loop variable") {
 			//Remove loop operator
@@ -150,20 +135,19 @@ class SyntaxAnalyzer {
 				if(this.errorMessage) return;
 			}
 
-			this.code("LOOP");
+			this.statement();
 
-			if(this.errorMessage) return;
+			if(this.errorMessage === `Unexpected token: IM OUTTA YR at line ${this.prevLine}`) {
+				this.errorMessage = "";
 
-			//Remove IMM OUTTA YR
-			this.prevLine = this.tokens.shift().line;
+				this.tokens.shift();
 
-			if(this.tokens[0].description !== "Variable identifier") {
-				this.errorMessage = `Expected identifier at line ${this.prevLine}`;
-				return;
-			}
+				if(this.tokens[0].description !== "Variable identifier") {
+					this.errorMessage = `Expected identifier at line ${this.prevLine}`;
+					return;
+				}
 
-			if(label !== this.tokens.shift().lexeme) {
-				this.errorMessage = `Expected identifier at line ${this.prevLine}`;
+				this.tokens.shift();
 			}
 		}
 		else {
@@ -172,15 +156,34 @@ class SyntaxAnalyzer {
 		}
 	}
 
-	recast() {
-		this.tokens.splice(0, 2);
+	typecast() {
+		if(this.tokens[0].description === "Variable identifier") {
+			this.tokens.splice(0, 2);
 
-		if(this.tokens[0].description !== "Variable type") {
-			this.errorMessage = `Expected variable type at line ${this.prevLine}`;
-			return;
+			if(this.tokens[0].description !== "Variable type") {
+				this.errorMessage = `Expected variable type at line ${this.prevLine}`;
+				return;
+			}
+
+			this.tokens.shift();
 		}
+		else if(this.tokens[0].description === "Typecast indicator") {
+			this.tokens.shift();
 
-		this.tokens.shift();
+			this.expression();
+
+			//Check if an error occured
+			if(this.errorMessage) return;
+
+			if(this.tokens[0].description === "Typecast argument") this.tokens.shift();
+
+			if(this.tokens[0].description !== "Variable type") {
+				this.errorMessage = `Expected variable type at line ${this.prevLine}`;
+				return;
+			}
+
+			this.tokens.shift();
+		}
 	}
 
 	declaration() {
@@ -207,7 +210,39 @@ class SyntaxAnalyzer {
 		//Remove varident and R
 		this.tokens.splice(0, 2);
 
-		this.expression();
+		if(this.tokens[0].description === "Typecast indicator") {
+			//Remove MAEK
+			this.tokens.shift();
+
+			if(this.tokens[0].description !== "Variable identifier") {
+				this.errorMessage = `Expected variable identifier at line: ${this.prevLine}`;
+				return;
+			}
+
+			//Remove varident
+			this.tokens.shift();
+
+			if(this.tokens[0].description === "Typecast argument") this.tokens.shift();
+
+			if(this.tokens[0].description !== "Variable type") {
+				this.errorMessage = `Expected variable type at line ${this.prevLine}`;
+				return;
+			}
+
+			this.tokens.shift();
+		}
+		else if(this.tokens[0].description === "Typecast an identifier's value") {
+			//Remove IS NOW A
+			this.tokens.shift();
+
+			if(this.tokens[0].description !== "Variable type") {
+				this.errorMessage = `Expected variable type at line ${this.prevLine}`;
+				return;
+			}
+
+			this.tokens.shift();
+		}
+		else this.expression();
 	}
 
 	switchCase() {
@@ -224,7 +259,7 @@ class SyntaxAnalyzer {
 			if(this.literal()) {
 				this.tokens.shift();
 
-				this.code("CASE");
+				this.statement();
 				this.switchBlock();
 			}
 			else {
@@ -239,31 +274,36 @@ class SyntaxAnalyzer {
 	}
 
 	switchBlock() {
-		while(this.tokens[0].description !== "Conditional operator end") {
-			if(this.errorMessage) return;
+		if(this.errorMessage === `Unexpected token: OIC at line ${this.prevLine}`) {
+			this.tokens.shift();
+			this.errorMessage = "";
+			return;
+		}
+		else if(this.errorMessage === `Unexpected token: OMG at line ${this.prevLine}` || this.errorMessage === `Unexpected token: OMGWTF at line ${this.prevLine}`) {
+			this.errorMessage = "";
 
+			//Check if OMG or OMGWTF
 			if(this.tokens[0].description === "Conditional operator CASE") {
 				this.prevLine = this.tokens.shift().line;
 				if(this.literal()) {
 					this.tokens.shift();
-	
-					this.code("CASE");
 				}
 				else {
 					this.errorMessage = `Expected value literal at line ${this.prevLine}`;
 					return;
 				}
 			}
-
 			else if(this.tokens[0].description === "Conditional operator default CASE") {
 				this.prevLine = this.tokens.shift().line;
-
-				this.code("ELSE");
 			}
-		}
+			else {
+				this.errorMessage = `Expected conditional operator at line ${this.prevLine}`;
+				return;
+			}
 
-		//Remove OIC
-		this.prevLine = this.tokens.shift().line;
+			this.statement();
+			this.switchBlock();
+		}
 	}
 
 	ifBlock() {
@@ -289,28 +329,24 @@ class SyntaxAnalyzer {
 			return;
 		}
 
-		this.code("IF");
-		while(this.tokens[0].description !== "Conditional operator end") {
-			if(this.errorMessage) return;
+		this.statement();
 
-			if(this.tokens[0].description === "Conditional operator ELSE-IF") {
-				//Remove MEBBE
-				this.prevLine = this.tokens.shift().line;
+		if(this.errorMessage === `Unexpected token: NO WAI at line ${this.prevLine}`) {
+			this.errorMessage = '';
+			this.tokens.shift();
 
-				//Expect expression
-				this.expression();
-				this.code("IF");
+			if(this.tokens[0].description === "Conditional operator end") {
+				this.errorMessage = `Expected statement at line ${this.prevLine + 1}`
+				return;
 			}
-			else if(this.tokens[0].description === "Conditional operator ELSE") {
-				//Remove NO WAI
-				this.prevLine = this.tokens.shift().line;
-				
-				this.code("ELSE");
-			}
+
+			this.statement();
 		}
 
-		//Remove OIC
-		this.prevLine = this.tokens.shift().line;
+		if(this.errorMessage === `Unexpected token: OIC at line ${this.prevLine}`) {
+			this.errorMessage = '';
+			this.tokens.shift();
+		}
 	}
 
 	input() {
@@ -321,24 +357,6 @@ class SyntaxAnalyzer {
 	}
 
 	//Expression subgroup
-	typecast() {
-		this.tokens.shift();
-
-		this.expression();
-
-		//Check if an error occured
-		if(this.errorMessage) return;
-
-		if(this.tokens[0].description === "Typecast argument") this.tokens.shift();
-
-		if(this.tokens[0].description !== "Variable type") {
-			this.errorMessage = `Expected variable type at line ${this.prevLine}`;
-			return;
-		}
-
-		this.tokens.shift();
-	}
-
 	equals() {
 		//Remove operator
 		this.tokens.shift();
@@ -632,16 +650,19 @@ class SyntaxAnalyzer {
 	}
 
 	run() {
+		// console.log(this.tokens);
 		//Check if the first token is HAI
 		if(this.tokens[0].description !== "Start of the program") this.errorMessage = `Unexpected token: ${this.tokens[0].lexeme} at line ${this.tokens[0].line}`;
 
 		else {
+			//Push HAI to stack and delete it from tokens list
+			this.stack.unshift(this.tokens[0]);
 			this.tokens.shift(this.tokens);
 
 			//If there's a lolcode version, ignore it
 			if(this.tokens[0].description === "LOLCODE version") this.tokens.shift(this.tokens);
 
-			this.code("MAIN");
+			this.statement(0);
 		}
 	}
 }

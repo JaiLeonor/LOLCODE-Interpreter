@@ -3,9 +3,8 @@ import "./App.css";
 import Editor from "./Editor";
 import Button from "./Button";
 import LexicalAnalyzer from "../lib/lexicalAnalyzer";
-import SyntaxAnalyzer from "../lib/syntax-analyzer";
-import SemanticAnalyzer from "../lib/semantic-analyzer";
-import yungKayJai from "../lib/interpreter";
+import SyntaxAnalyzer from "../lib/syntaxAnalyzer";
+import SemanticAnalyzer from "../lib/semanticAnalyzer";
 
 function readFileContent(file) {
 	const reader = new FileReader();
@@ -16,13 +15,9 @@ function readFileContent(file) {
 	});
 }
 
-let symbolTable = [
-	{
-		variableName: "IT",
-		type: null,
-		value: null,
-	},
-];
+let symbolTable = {
+	IT: null
+};
 
 function App() {
 	const inputRef = useRef();
@@ -45,14 +40,17 @@ KTHXBYE`);
 		const lex = new LexicalAnalyzer(code);
 		lex.run();
 		const { tokens = [] } = lex.data();
-		if (tokens && tokens.length > 0) {
-			setTokens([...tokens]);
-		}
+		if (tokens && tokens.length > 0) setTokens([...tokens]);
 	}
 
 	function runSyntaxAnalyzer() {
-		const syntaxAnalyzer = new SyntaxAnalyzer(code);
-		console.log(syntaxAnalyzer.parse());
+		const syntaxAnalyzer = new SyntaxAnalyzer([...tokens]);
+		syntaxAnalyzer.run();
+	}
+
+	function runSemanticAnalyzer() {
+		const semanticAnalyzer = new SemanticAnalyzer([...tokens]);
+		semanticAnalyzer.run();
 	}
 
 	async function handleFileUpload(e) {
@@ -65,10 +63,11 @@ KTHXBYE`);
 			console.log(error);
 		}
 	}
+
 	function execute() {
 		runLexicalAnalyzer();
 		runSyntaxAnalyzer();
-		yungKayJai(tokens);
+		runSemanticAnalyzer();
 	}
 
 	return (
@@ -136,24 +135,32 @@ KTHXBYE`);
 							<thead style={{ background: "grey", padding: "5px" }}>
 								<tr style={{ border: "1px solid #000" }}>
 									<th>Variable Name</th>
-									<th>Type</th>
 									<th>Value</th>
 								</tr>
 							</thead>
 							<tbody style={{ padding: "5px" }}>
-								{symbolTable.map((symbol, idx) => (
+								{/* {Object.keys(symbolTable).forEach()}
+								{Object.keys(symbolTable).map(([key, value]) => {
+									console.log(key, value);
+									return <tr>
+										<td style={{ border: "1px solid #000" }}>
+											{key}
+										</td>
+										<td style={{ border: "1px solid #000" }}>
+											{value}
+										</td>
+									</tr>
+								})} */}
+								{/* {symbolTable.map((symbol, idx) => (
 									<tr key={idx}>
 										<td style={{ border: "1px solid #000" }}>
 											{symbol.variableName}
 										</td>
 										<td style={{ border: "1px solid #000" }}>
-											{JSON.stringify(symbol.type)}
-										</td>
-										<td style={{ border: "1px solid #000" }}>
 											{JSON.stringify(symbol.value)}
 										</td>
 									</tr>
-								))}
+								))} */}
 							</tbody>
 						</table>
 					)}
