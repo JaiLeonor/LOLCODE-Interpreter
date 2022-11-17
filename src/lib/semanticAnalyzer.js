@@ -3,11 +3,13 @@ class SemanticAnalyzer {
 		this.tokens = tokens;
 		this.symbolTable = {};
 		this.errorMessage = "";
+		this.output = "";
 	}
 	data() {
 		return {
 			symbolTable: this.symbolTable,
 			error: this.errorMessage,
+			output: this.output
 		};
 	}
 
@@ -153,19 +155,30 @@ class SemanticAnalyzer {
 	}
 
 	print(commandStack, symbolTable) {
-		commandStack.shift();	//Remove VISIBLE
+		let line = commandStack.shift().line;	//Remove VISIBLE
 		let values = this.expression(commandStack, symbolTable);
 
 		if(this.errorMessage) return;
 
-		console.log(values.reverse().join(""));
+		let out = values.reverse()
+
+		for(let i = 0; i < out.length; i++) {
+			console.log(out[i])
+			if(typeof out[i] === 'boolean')	out[i] ? out[i] = "WIN" : out[i] = "FAIL";
+			else if(out[i] === null) {
+				this.errorMessage = `Cannot implicitly cast nil: at line ${line}`;
+				return;
+			}
+		}
+
+		this.output = `${this.output}${out.join("")}\n`;
 	}
 
 	//TBC pag icoconnect na sa UI
 	input(commandStack, symbolTable) {
 		//Check if variable exists
 		commandStack.shift();
-		let input = "69";
+		let input = prompt("Enter input:");
 		symbolTable[commandStack[0].lexeme] = input;
 	}
 

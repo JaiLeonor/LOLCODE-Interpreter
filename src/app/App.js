@@ -15,10 +15,6 @@ function readFileContent(file) {
 	});
 }
 
-let symbolTable = {
-	IT: null
-};
-
 function App() {
 	const inputRef = useRef();
 	// const [file, setFile] = useState(null);
@@ -26,6 +22,8 @@ function App() {
 	VISIBLE "Hello, World!"
 KTHXBYE`);
 	const [tokens, setTokens] = useState([]);
+	const [symbolTable, setSymbolTable] = useState({IT: null})
+	const [terminal, setTerminal] = useState('');
 
 	function triggerUpload() {
 		if (inputRef && inputRef.current !== null) {
@@ -39,18 +37,19 @@ KTHXBYE`);
 	function runLexicalAnalyzer() {
 		const lex = new LexicalAnalyzer(code);
 		lex.run();
-		const { tokens = [] } = lex.data();
-		if (tokens && tokens.length > 0) setTokens([...tokens]);
+		return lex.data();
 	}
 
-	function runSyntaxAnalyzer() {
+	function runSyntaxAnalyzer(tokens) {
 		const syntaxAnalyzer = new SyntaxAnalyzer([...tokens]);
 		syntaxAnalyzer.run();
+		return syntaxAnalyzer.data();
 	}
 
-	function runSemanticAnalyzer() {
+	function runSemanticAnalyzer(tokens) {
 		const semanticAnalyzer = new SemanticAnalyzer([...tokens]);
 		semanticAnalyzer.run();
+		return semanticAnalyzer.data()
 	}
 
 	async function handleFileUpload(e) {
@@ -65,9 +64,36 @@ KTHXBYE`);
 	}
 
 	function execute() {
-		runLexicalAnalyzer();
-		runSyntaxAnalyzer();
-		runSemanticAnalyzer();
+		const lexer = runLexicalAnalyzer();
+		if(lexer.error === "") {
+			const syntax = runSyntaxAnalyzer([...lexer.tokens]);
+			if(syntax.error === "") {
+				const semantic = runSemanticAnalyzer([...lexer.tokens]);
+				if(semantic.error === "") {
+					setTokens([...lexer.tokens]);
+					setSymbolTable({...semantic.symbolTable});
+					setTerminal(semantic.output);
+				}
+				else {
+					setTokens([...lexer.tokens]);
+					setSymbolTable({...semantic.symbolTable});
+					setTerminal(`${semantic.output}${semantic.error}`);
+				}
+			}
+			else {
+				setTokens([...lexer.tokens]);
+				setTerminal(syntax.error);
+			}
+		}
+		else {
+			setTokens([...lexer.tokens]);
+			setTerminal(lexer.error);
+		}
+	}
+
+	function TerminalOutput(props) {
+		const text = props.text;
+		return text.split('\n').map(str => <p>{str}</p>)
 	}
 
 	return (
@@ -139,28 +165,21 @@ KTHXBYE`);
 								</tr>
 							</thead>
 							<tbody style={{ padding: "5px" }}>
-								{/* {Object.keys(symbolTable).forEach()}
-								{Object.keys(symbolTable).map(([key, value]) => {
-									console.log(key, value);
-									return <tr>
+								{Object.entries(symbolTable).map(([key, value]) => 
+									<tr key = {key}>
 										<td style={{ border: "1px solid #000" }}>
 											{key}
 										</td>
 										<td style={{ border: "1px solid #000" }}>
-											{value}
+											{value === null
+												? "NOOB"
+												: typeof value === 'boolean'
+													? value ? "WIN" : "FAIL"
+													: value
+											}
 										</td>
 									</tr>
-								})} */}
-								{/* {symbolTable.map((symbol, idx) => (
-									<tr key={idx}>
-										<td style={{ border: "1px solid #000" }}>
-											{symbol.variableName}
-										</td>
-										<td style={{ border: "1px solid #000" }}>
-											{JSON.stringify(symbol.value)}
-										</td>
-									</tr>
-								))} */}
+								)}
 							</tbody>
 						</table>
 					)}
@@ -168,7 +187,10 @@ KTHXBYE`);
 			</header>
 			<main className="exec">
 				<Button onClick={execute}>Execute</Button>
-				{/* exec button and interpreter run goes here */}
+				<div style = {{ height: "20px" }}></div>
+				<div style = {{ background: "#000", width: "100%", height: "400px", color: "#FFF" }}>
+					<TerminalOutput text={terminal}/>
+				</div>
 			</main>
 		</div>
 	);

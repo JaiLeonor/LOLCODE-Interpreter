@@ -11,9 +11,12 @@ class LexicalAnalyzer {
 	}
 
 	data() {
-		return !this.errorMessage
-		? { tokens: this.tokens, lines: this.lines, code: this.code }
-		: { error: this.errorMessage };
+		return {
+			tokens: this.tokens,
+			lines: this.lines,
+			code: this.code,
+			error: this.errorMessage
+		}
 	}
 
 	lexer(line, index) {
