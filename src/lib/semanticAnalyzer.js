@@ -48,7 +48,7 @@ class SemanticAnalyzer {
 	}
 
 	expression(commandStack, symbolTable) {
-		let values = []
+		let values = [];
 		let pop;
 		while((pop = commandStack.pop()) !== undefined) {
 			if(this.errorMessage) break;
@@ -98,8 +98,8 @@ class SemanticAnalyzer {
 				else if(pop.description === "Comparison operator for inequality") values.push(x !== y);
 
 				else if(pop.description === "Concatenates strings") {
-					x = typeof x === 'string' ? x : this.toString(x);
-					y = typeof y === 'string' ? y : this.toString(y);
+					x = typeof x === 'string' ? x : this.toYarn(x);
+					y = typeof y === 'string' ? y : this.toYarn(y);
 
 					values.push(`${x}${y}`);
 
@@ -113,8 +113,8 @@ class SemanticAnalyzer {
 							break;
 						}
 
-						x = typeof x === 'string' ? x : this.toString(x);
-						y = typeof y === 'string' ? y : this.toString(y);
+						x = typeof x === 'string' ? x : this.toYarn(x);
+						y = typeof y === 'string' ? y : this.toYarn(y);
 
 						values.push(`${x}${y}`);
 					}
@@ -163,7 +163,6 @@ class SemanticAnalyzer {
 		let out = values.reverse()
 
 		for(let i = 0; i < out.length; i++) {
-			console.log(out[i])
 			if(typeof out[i] === 'boolean')	out[i] ? out[i] = "WIN" : out[i] = "FAIL";
 			else if(out[i] === null) {
 				this.errorMessage = `Cannot implicitly cast nil: at line ${line}`;
@@ -178,6 +177,10 @@ class SemanticAnalyzer {
 	input(commandStack, symbolTable) {
 		//Check if variable exists
 		commandStack.shift();
+		if(!(commandStack[0].lexeme in symbolTable)) {
+			this.errorMessage = `Variable does not exist: ${commandStack[0].lexeme} at line ${commandStack[0].line}`;
+			return;
+		}
 		let input = prompt("Enter input:");
 		symbolTable[commandStack[0].lexeme] = input;
 	}
@@ -197,12 +200,7 @@ class SemanticAnalyzer {
 	}
 
 	assignment(commandStack, symbolTable) {
-		if(commandStack[0].lexeme in symbolTable) {
-			let variable = commandStack.shift().lexeme;
-			commandStack.shift();
-			symbolTable[variable] = this.expression(commandStack, symbolTable)[0];
-		}
-		else this.errorMessage = `Variable does not exist: ${commandStack[0].lexeme} at line ${commandStack[0].line}`;
+		commandStack[0].lexeme in symbolTable ? symbolTable[commandStack[0].lexeme] = this.expression(commandStack.slice(2), symbolTable)[0] : this.errorMessage = `Variable does not exist: ${commandStack[0].lexeme} at line ${commandStack[0].line}`;
 	}
 
 	recast(commandStack, symbolTable) {
@@ -305,6 +303,20 @@ class SemanticAnalyzer {
 		this.tokens.shift(); //Remove OIC
 	}
 
+	getLoopBlock() {
+		let loopBlock = [];
+		while(this.tokens[0].description !== "Loop delimeter end") {
+			if(this.tokens[0].description === "Loop delimeter start") {
+				let line = this.tokens[0].line;
+				loopBlock = [...loopBlock, ...this.tokens.filter(token => token.line === line)];
+				this.tokens = this.tokens.filter(token => token.line !== line);
+				loopBlock = [...loopBlock, ...this.getLoopBlock(), this.tokens.shift(), this.tokens.shift()];
+			}
+			loopBlock.push(this.tokens.shift());
+		}
+		return loopBlock;
+	}
+
 	loop(symbolTable) {
 		let loopSymbolTable = {...symbolTable};
 		let line = this.tokens.shift().line;	//Remove IM IN YR
@@ -323,22 +335,18 @@ class SemanticAnalyzer {
 
 		if(this.tokens[0].lexeme === "TIL" || this.tokens[0].lexeme === "WILE") {
 			condition = this.tokens.shift();
-			expressionStack = this.tokens.filter((token) => token.line === line);
-			this.tokens = this.tokens.filter((token) => token.line !== line);
+			expressionStack = this.tokens.filter(token => token.line === line);
+			this.tokens = this.tokens.filter(token => token.line !== line);
 		}
 
-		let loopBlock = [];
-
-		while(this.tokens[0].description !== "Loop delimeter end") loopBlock.push(this.tokens.shift());
+		let loopBlock = this.getLoopBlock();
 
 		this.tokens.unshift(...loopBlock);
 
 		while(condition.lexeme === null || (condition.lexeme === "TIL" && !this.expression([...expressionStack], loopSymbolTable)[0]) || (condition.lexeme === "WILE" && this.expression([...expressionStack], loopSymbolTable)[0])) {
 			if(this.errorMessage) return;
 
-			let loopLine = this.tokens[0].line;
-			loopSymbolTable = this.executeCommandStack(this.tokens.filter(token => token.line === loopLine), loopSymbolTable);
-			this.tokens = this.tokens.filter(token => token.line !== loopLine);
+			loopSymbolTable = this.code("LOOP", loopSymbolTable)
 
 			if(this.tokens[0].description === "Break statement") {
 				this.tokens = this.tokens.filter(token => !loopBlock.includes(token))
@@ -348,12 +356,16 @@ class SemanticAnalyzer {
 			if(this.tokens[0].description === "Loop delimeter end") {
 				if(operation.lexeme === "UPPIN YR") loopSymbolTable[variable.lexeme] += 1;
 				else if(operation.lexeme === "NERFIN YR") loopSymbolTable[variable.lexeme] -= 1;
-				this.tokens.unshift(...loopBlock);
+				this.tokens = [...loopBlock, ...this.tokens];
 			}
 		}
 
+		this.tokens = this.tokens.filter(token => !loopBlock.includes(token))
+
 		this.tokens.shift();	//Remove IM OUTTA YR
 		this.tokens.shift();	//Remove Loop identifier
+
+		for(const key in symbolTable) if(key in loopSymbolTable) symbolTable[key] = loopSymbolTable[key];
 	}
 
 	executeCommandStack(commandStack, symbolTable) {
@@ -380,7 +392,8 @@ class SemanticAnalyzer {
 		let types = {
 			MAIN: ["End of program"],
 			IF: ["Conditional operator end", "Conditional operator ELSE-IF", "Conditional operator ELSE"],
-			SWITCH: ["Conditional operator end", "Conditional operator CASE", "Conditional operator default CASE"]
+			SWITCH: ["Conditional operator end", "Conditional operator CASE", "Conditional operator default CASE"],
+			LOOP: ["Loop delimeter end"]
 		}
 
 		while(!(types[type].indexOf(this.tokens[0].description) > -1) && this.tokens[0].description !== "Break statement") {

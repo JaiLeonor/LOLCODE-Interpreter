@@ -632,8 +632,11 @@ class SyntaxAnalyzer {
 	}
 
 	run() {
+		//Check if file has tokens
+		if(this.tokens.length === 0) this.errorMessage = `Expected token: HAI at line 1`;
+		
 		//Check if the first token is HAI
-		if(this.tokens[0].description !== "Start of the program") this.errorMessage = `Unexpected token: ${this.tokens[0].lexeme} at line ${this.tokens[0].line}`;
+		else if(this.tokens[0].description !== "Start of the program") this.errorMessage = `Unexpected token: ${this.tokens[0].lexeme} at line ${this.tokens[0].line}`;
 
 		else {
 			this.tokens.shift(this.tokens);
