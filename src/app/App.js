@@ -2,9 +2,9 @@ import React, { useRef, useState } from "react";
 import "./App.css";
 import Editor from "./Editor";
 import Button from "./Button";
-import { LexicalAnalyzer } from "../lib/lexicalAnalyzer";
-import { SyntaxAnalyzer } from "../lib/syntaxAnalyzer";
-import { SemanticAnalyzer } from "../lib/semanticAnalyzer";
+import LexicalAnalyzer from "../lib/lexicalAnalyzer";
+import SyntaxAnalyzer from "../lib/syntaxAnalyzer";
+import SemanticAnalyzer from "../lib/semanticAnalyzer";
 
 function readFileContent(file) {
 	const reader = new FileReader();
