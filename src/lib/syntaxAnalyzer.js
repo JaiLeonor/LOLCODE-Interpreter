@@ -649,4 +649,4 @@ class SyntaxAnalyzer {
 	}
 }
 
-module.exports = SyntaxAnalyzer;
+export { SyntaxAnalyzer };

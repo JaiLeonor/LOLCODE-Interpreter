@@ -361,4 +361,4 @@ class LexicalAnalyzer {
 	}
 }
 
-module.exports = LexicalAnalyzer;
+export { LexicalAnalyzer };
